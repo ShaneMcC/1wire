@@ -30,6 +30,8 @@
 	$devices = array();
 
 	if (!isset($daemon['cli']['post'])) {
+
+		// 1 Wire.
 		foreach (glob('/sys/bus/w1/devices/28-*') as $basedir) {
 			$name = trim(file_get_contents($basedir . '/name'));
 			$serial = preg_replace('#.*-(.*)$#', '\1', $name);
@@ -39,12 +41,42 @@
 			$dev['serial'] = $serial;
 			$dev['data'] = array();
 
-			echo sprintf('Found: %s' . "\n", $dev['name']);
+			echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
 			foreach (glob($basedir . '/hwmon/hwmon*/*_input') as $sensor) {
-				$sensorName = basename($sensor);
+				$sensorName = preg_replace('#^(.*)_input$#', '\1', basename($sensor));
+				$sensorValue = trim(file_get_contents($sensor));
+
+				echo sprintf("\t" . 'Sensor: %s [%s]' . "\n", $sensorName, $sensorValue);
+				$dev['data'][$sensorName] = $sensorValue;
+			}
+
+			$devices[] = $dev;
+		}
+
+		// DHT11
+		foreach (glob('/sys/bus/iio/devices/iio:*/') as $basedir) {
+			$name = str_replace('@', '_', trim(file_get_contents($basedir . '/name')));
+
+			// These things don't have a real serial :( They are 1-per-GPIO Pin
+			// though, so we can use that as an identifier.
+			$gpio = base_convert(unpack('H2', file_get_contents($basedir . '/of_node/gpios'), 7)[1], 16, 10);
+			$serial = $name . '-gpio-' . $gpio;
+
+			$dev = array();
+			$dev['name'] = $name;
+			$dev['serial'] = $serial;
+			$dev['data'] = array();
+
+			echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+
+			if (isset($daemon['cli']['search'])) { continue; }
+
+			foreach (glob($basedir . '/*_input') as $sensor) {
+				$sensorName = preg_replace('#^in_(.*)_input$#', '\1', basename($sensor));
+
 				$sensorValue = trim(file_get_contents($sensor));
 
 				echo sprintf("\t" . 'Sensor: %s [%s]' . "\n", $sensorName, $sensorValue);
