@@ -75,9 +75,11 @@
 	 *
 	 * Example: $rrdoptions[<graphtype>]['flags'] = array('--slope-mode', '--graph-render-mode mono');
 	 */
-	$rrdoptions['temp1_input']['flags'] = array();
-	$rrdoptions['temp1_input']['defs'] = array();
-	$rrdoptions['temp1_input']['end'] = array();
+	$rrdoptions['temp1']['flags'] = array();
+	$rrdoptions['temp1']['defs'] = array();
+	$rrdoptions['temp1']['end'] = array();
+
+	$rrdoptions['temp'] = $rrdoptions['temp1'];
 
 	/**
 	 * Return detailed rrdtool errors to the submitting client?
@@ -119,7 +121,7 @@
 	// This should be an array of additional options to pass.
 	//
 	// These will be used INSTEAD OF $rrdoptions values where specified.
-	$graphOpts['Home']['ABCDEFGH']['rrd_flags_temp1_input'] = array('--slope-mode', '--graph-render-mode mono');
+	$graphOpts['Home']['ABCDEFGH']['rrd_flags_temp1'] = array('--slope-mode', '--graph-render-mode mono');
 
 	// Graphs to display in historical view.
 	$historicalOptions = ['1 Day' => ['start' => '-1 days'],

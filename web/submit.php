@@ -76,7 +76,7 @@
 		$rrdData[] = 'RRA:AVERAGE:0.5:360:1488';
 		$rrdData[] = 'RRA:AVERAGE:0.5:1440:36500';
 
-		execRRDTool($rrdData);
+		return execRRDTool($rrdData);
 	}
 
 	function updateRRD($filename, $dsname, $time, $value) {

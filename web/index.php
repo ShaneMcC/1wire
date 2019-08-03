@@ -14,7 +14,7 @@
 	}
 
 	// Basic Graphing to start with.
-	$types = ['temp1_input'];
+	$types = ['temp1', 'temp', 'humidityrelative'];
 
 	// Submit Data.
 	if (file_exists($rrdDir) && is_dir($rrdDir)) {

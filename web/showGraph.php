@@ -21,6 +21,8 @@
 	$debug = isset($_REQUEST['debug']) && $allowDebug;
 	$debugOut = isset($_REQUEST['debugOut']) && $allowDebug;
 
+	$types = ['temp1' => 'Degrees', 'temp' => 'Degrees', 'humidityrelative' => 'Percentage'];
+
 	// If the params are not passed to us, abort.
 	if ($type == null || $location == null || $serial == null) { die('Internal Error.'); }
 
@@ -55,7 +57,7 @@
 	$title = getGraphOption($location, $serial, 'title_' . $type, $title);
 	$showDataComments = getGraphOption($location, $serial, 'dataComments', $showDataComments);
 
-	if ($type == 'temp1_input') {
+	if (in_array($type, array_keys($types))) {
 		if ($autoLimit) {
 			$rrdData = array();
 			$rrdData[] = 'graph /dev/null';
@@ -97,7 +99,7 @@
 		if ($noAxis) {
 			$rrdData[] = '--y-grid none --x-grid none';
 		} else {
-			$rrdData[] = '--vertical-label "Degrees"';
+			$rrdData[] = '--vertical-label "' . $types[$type] . '"';
 		}
 		if ($noLegend) { $rrdData[] = '-g'; }
 		$rrdData[] = '--units=si';
