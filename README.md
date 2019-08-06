@@ -8,4 +8,4 @@ To prevent data-loss, if the central server is unavailable, data will collect on
 
 The probes will look for any devices on the 1wire bus and collect data all `hwmon` data from them at the time they run and any iio devices that expose temperature data, and submit the data for any they find.
 
-Currently this only graphs some of the data that is collected even though the probes may collect and submit more.
+Graphs can be collected and viewed using https://github.com/ShaneMcC/collector-web
