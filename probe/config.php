@@ -9,6 +9,11 @@
 	/** Collection URL. */
 	$collectionServer = 'http://127.0.0.1/1wire/submit.php';
 
+	/** Phillips Hue Data Collection. */
+	/** Need to get an API Key by following https://developers.meethue.com/develop/get-started-2/ */
+	$hueDevices = [];
+	// $hueDevices['192.168.1.1'] = ['apikey' => ''];
+
 	// Collection Server can also be an array.
 	//
 	// $collectionServer = array();

@@ -112,6 +112,65 @@
 			}
 		}
 
+		// Hue Temperature Sensors
+		foreach ($hueDevices as $hue => $huedevice) {
+			$huedata = json_decode(@file_get_contents('http://' . $hue . '/api/' . $huedevice['apikey'] . '/sensors'), true);
+
+			$hueSensorDevs = [];
+
+			// Each physical device exposes multiple sensors that only contain partial information.
+			// Put them all together here.
+			foreach ($huedata as $sensor) {
+				if ($sensor['type'] == 'CLIPGenericStatus') { continue; }
+				if (!isset($sensor['uniqueid'])) { continue; }
+
+				if (preg_match('#^([0-9A-F:]+)-#i', $sensor['uniqueid'], $m)) {
+					$serial = str_replace(':', '', $m[1]);
+				}
+
+				if (!isset($hueSensorDevs[$serial])) {
+					$hueSensorDevs[$serial] = ['name' => 'Sensor', 'serial' => $serial, 'values' => []];
+				}
+
+				foreach ($sensor['state'] as $type => $value) {
+					if ($type != 'lastupdated') {
+						$hueSensorDevs[$serial]['values'][$type] = $value;
+					}
+				}
+
+				if (isset($sensor['config']['battery'])) {
+					$hueSensorDevs[$serial]['values']['battery'] = $sensor['config']['battery'];
+				}
+
+				if (!preg_match('#^Hue .* sensor [0-9]+$#', $sensor['name'])) {
+					$hueSensorDevs[$serial]['name'] = $sensor['name'];
+				}
+			}
+
+			// Now actually do what we care about.
+			foreach ($hueSensorDevs as $sensor) {
+				$dev = [];
+				$dev['name'] = $sensor['name'];
+				$dev['serial'] = $sensor['serial'];
+				$dev['data'] = [];
+
+				// Convert the data values to the same format as above.
+				foreach (['temperature' => 'temp'] as $dType => $dName) {
+					if (isset($sensor['values'][$dType])) {
+						$dev['data'][$dName] = $sensor['values'][$dType] / 100;
+					}
+				}
+
+				if (!empty($dev['data'])) {
+					echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+
+					if (isset($daemon['cli']['search'])) { continue; }
+
+					$devices[] = $dev;
+				}
+			}
+		}
+
 		if (count($devices) > 0 && !isset($daemon['cli']['debug'])) {
 			$data = json_encode(array('time' => $time, 'devices' => $devices));
 
