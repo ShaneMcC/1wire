@@ -157,7 +157,7 @@
 				// Convert the data values to the same format as above.
 				foreach (['temperature' => 'temp'] as $dType => $dName) {
 					if (isset($sensor['values'][$dType])) {
-						$dev['data'][$dName] = $sensor['values'][$dType] / 100;
+						$dev['data'][$dName] = $sensor['values'][$dType] * 10;
 					}
 				}
 
