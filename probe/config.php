@@ -7,7 +7,7 @@
 	$submissionKey = 'SomePassword';
 
 	/** Collection URL. */
-	$collectionServer = 'http://192.168.2.2/1wire/submit.php';
+	$collectionServer = 'http://127.0.0.1/1wire/submit.php';
 
 	// Collection Server can also be an array.
 	//

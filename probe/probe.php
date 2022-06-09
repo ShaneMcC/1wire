@@ -86,6 +86,32 @@
 			$devices[] = $dev;
 		}
 
+		// MiTemperature
+		foreach (glob('/run/MiTemp2/*.json') as $dataFile) {
+			$mtime = filemtime($dataFile);
+			if ($mtime < (time() - 120)) { continue; } // Ignore stale files.
+			$data = json_decode(file_get_contents($dataFile), true);
+
+			$dev = [];
+			$dev['name'] = $data['name'];
+			$dev['serial'] = $data['name'];
+			$dev['data'] = [];
+			// Convert the data values to the same format as DHT11.
+			foreach (['temperature' => 'temp', 'humidity' => 'humidityrelative', 'voltage' => 'voltage'] as $dType => $dName) {
+				if (isset($data[$dType])) {
+					$dev['data'][$dName] = $data[$dType] * 1000;
+				}
+			}
+
+			if (!empty($dev['data'])) {
+				echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+
+				if (isset($daemon['cli']['search'])) { continue; }
+
+				$devices[] = $dev;
+			}
+		}
+
 		if (count($devices) > 0 && !isset($daemon['cli']['debug'])) {
 			$data = json_encode(array('time' => $time, 'devices' => $devices));
 
