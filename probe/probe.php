@@ -122,7 +122,10 @@
 			// Put them all together here.
 			foreach ($huedata as $sensor) {
 				if ($sensor['type'] == 'CLIPGenericStatus') { continue; }
+				if ($sensor['type'] == 'ZLLSwitch') { continue; }
 				if (!isset($sensor['uniqueid'])) { continue; }
+				if (!preg_match('#:#', $sensor['uniqueid'])) { continue; }
+
 
 				if (preg_match('#^([0-9A-F:]+)-#i', $sensor['uniqueid'], $m)) {
 					$serial = str_replace(':', '', $m[1]);
@@ -155,10 +158,12 @@
 				$dev['data'] = [];
 
 				// Convert the data values to the same format as above.
-				foreach (['temperature' => 'temp'] as $dType => $dName) {
-					if (isset($sensor['values'][$dType])) {
-						$dev['data'][$dName] = $sensor['values'][$dType] * 10;
-					}
+				$modifiers = ['temperature' => ['name' => 'temp', 'value' => function($v) { return $v *10;} ]];
+				foreach ($sensor['values'] as $dName => $dValue) {
+					if (isset($modifiers[$dName]['name'])) { $dName = $modifiers[$dName]['name']; }
+					if (isset($modifiers[$dName]['value'])) { $dValue = $modifiers[$dName]['value']($dValue); }
+
+					$dev['data'][$dName] = $dValue;
 				}
 
 				if (!empty($dev['data'])) {
@@ -237,7 +242,7 @@
 
 	if (isset($daemon['cli']['search'])) { die(0); }
 	if (isset($daemon['cli']['debug'])) {
-		print_r($devices);
+		echo json_encode($devices, JSON_PRETTY_PRINT), "\n";
 		die(0);
 	}
 
