@@ -158,10 +158,11 @@
 				$dev['data'] = [];
 
 				// Convert the data values to the same format as above.
-				$modifiers = ['temperature' => ['name' => 'temp', 'value' => function($v) { return $v *10;} ]];
+				$modifiers = ['temperature' => ['name' => 'temp', 'value' => function($v) { return $v * 10;} ]];
 				foreach ($sensor['values'] as $dName => $dValue) {
-					if (isset($modifiers[$dName]['name'])) { $dName = $modifiers[$dName]['name']; }
-					if (isset($modifiers[$dName]['value'])) { $dValue = $modifiers[$dName]['value']($dValue); }
+					$thisModifiers = $modifiers[$dName];
+					if (isset($thisModifiers['name'])) { $dName = $thisModifiers['name']; }
+					if (isset($thisModifiers['value'])) { $dValue = $thisModifiers['value']($dValue); }
 
 					$dev['data'][$dName] = $dValue;
 				}
