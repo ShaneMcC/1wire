@@ -160,7 +160,7 @@
 				// Convert the data values to the same format as above.
 				$modifiers = ['temperature' => ['name' => 'temp', 'value' => function($v) { return $v * 10;} ]];
 				foreach ($sensor['values'] as $dName => $dValue) {
-					$thisModifiers = $modifiers[$dName];
+					$thisModifiers = isset($modifiers[$dName]) ? $modifiers[$dName] : [];
 					if (isset($thisModifiers['name'])) { $dName = $thisModifiers['name']; }
 					if (isset($thisModifiers['value'])) { $dValue = $thisModifiers['value']($dValue); }
 
@@ -177,6 +177,37 @@
 			}
 		}
 
+		foreach (array_keys($awairDevices) as $awair) {
+			$awairsettings = json_decode(@curl_get_contents('http://' . $awair . '/settings/config/data'), true);
+			$awairdata = json_decode(@curl_get_contents('http://' . $awair . '/air-data/latest'), true);
+
+			$dev = [];
+			$dev['name'] = $awairsettings['device_uuid'];
+			$dev['serial'] = strtoupper(str_replace(':', '', $awairsettings['wifi_mac']));
+			$dev['data'] = [];
+
+			// Convert temp/humidity to be in line with other sensors.
+			$modifiers = ['temp' => ['value' => function($v) { return $v * 1000;}],
+			              'humid' => ['name' => 'humidityrelative', 'value' => function($v) { return $v * 1000;}],
+			              'timestamp' => ['value' => function ($v) { return null; }]];
+
+			foreach ($awairdata as $dName => $dValue) {
+				$thisModifiers = isset($modifiers[$dName]) ? $modifiers[$dName] : [];
+				if (isset($thisModifiers['name'])) { $dName = $thisModifiers['name']; }
+				if (isset($thisModifiers['value'])) { $dValue = $thisModifiers['value']($dValue); }
+
+				if ($dValue !== null) {
+					$dev['data'][$dName] = $dValue;
+				}
+			}
+
+			if (!empty($dev['data'])) {
+				echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+				if (isset($daemon['cli']['search'])) { continue; }
+				$devices[] = $dev;
+			}
+		}
+
 		if (count($devices) > 0 && !isset($daemon['cli']['debug'])) {
 			$data = json_encode(array('time' => $time, 'devices' => $devices));
 
@@ -188,6 +219,16 @@
 				}
 			}
 		}
+	}
+
+	function curl_get_contents($url) {
+		$ch = curl_init($url);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+		curl_setopt($ch, CURLOPT_HEADER, 0);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		$content = curl_exec($ch);
+		curl_close($ch);
+		return $content;
 	}
 
 	function unparse_url($parsed_url) {

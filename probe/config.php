@@ -14,6 +14,10 @@
 	$hueDevices = [];
 	// $hueDevices['192.168.1.1'] = ['apikey' => ''];
 
+	/** Collect data from Awair Elements devices. */
+	$awairDevices = [];
+	// $awairDevices['192.168.1.1'] = true;
+
 	// Collection Server can also be an array.
 	//
 	// $collectionServer = array();
