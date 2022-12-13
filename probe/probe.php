@@ -181,6 +181,12 @@
 			$awairsettings = json_decode(@curl_get_contents('http://' . $awair . '/settings/config/data'), true);
 			$awairdata = json_decode(@curl_get_contents('http://' . $awair . '/air-data/latest'), true);
 
+			if (!isset($awairsettings['device_uuid']) || !isset($awairdata['timestamp'])) {
+				// Sometimes the awair doesn't respond to both queries.
+				// Ignore it for this cycle.
+				continue;
+			}
+
 			$dev = [];
 			$dev['name'] = $awairsettings['device_uuid'];
 			$dev['serial'] = strtoupper(str_replace(':', '', $awairsettings['wifi_mac']));
