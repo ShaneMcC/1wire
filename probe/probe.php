@@ -74,7 +74,7 @@
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
-			foreach (glob($basedir . '/*_input') as $sensor) {
+			foreach (glob($basedir . '/' . '*_input') as $sensor) {
 				$sensorName = preg_replace('#^in_(.*)_input$#', '\1', basename($sensor));
 
 				$sensorValue = trim(file_get_contents($sensor));
@@ -87,7 +87,7 @@
 		}
 
 		// MiTemperature
-		foreach (glob('/run/MiTemp2/*.json') as $dataFile) {
+		foreach (glob('/run/MiTemp2/' . '*.json') as $dataFile) {
 			$mtime = filemtime($dataFile);
 			if ($mtime < (time() - 120)) { continue; } // Ignore stale files.
 			$data = json_decode(file_get_contents($dataFile), true);
