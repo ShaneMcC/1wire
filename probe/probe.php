@@ -275,9 +275,10 @@
 
 				// What values do we understand, and convert them to match others.
 				$zbDataValues = [];
-				$zbDataValues['battery'] = ['type' => 'BatteryPercentage', 'value' => function($v) { return $v['BatteryPercentage']; }];
+				$zbDataValues['battery'] = ['type' => 'BatteryPercentage', 'value' => function($v) { return intval($v['BatteryPercentage']); }];
 				$zbDataValues['temp'] = ['type' => 'Temperature', 'value' => function($v) { return intval($v['Temperature'] * 1000); }];
 				$zbDataValues['humidityrelative'] = ['type' => 'Humidity', 'value' => function($v) { return intval($v['Humidity'] * 1000); }];
+				$zbDataValues['pressure'] = ['type' => 'Pressure', 'value' => function($v) { return $v['PressureUnit'] == 'hPa' ? intval($v['Pressure'] * 1000) : null; }];
 
 				$zbDevices = [];
 
@@ -297,6 +298,7 @@
 					foreach ($zbDataValues as $key => $keyInfo) {
 						if (isset($sensor[$keyInfo['type']])) {
 							$dev['data'][$key] = call_user_func($keyInfo['value'], $sensor);
+							if ($dev['data'][$key] == null) { unset($dev['data'][$key]); }
 						}
 					}
 
