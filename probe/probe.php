@@ -41,7 +41,7 @@
 			$dev['serial'] = $serial;
 			$dev['data'] = array();
 
-			echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+			echo sprintf('Found: %s [%s] (1wire)' . "\n", $dev['name'], $dev['serial']);
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
@@ -70,7 +70,7 @@
 			$dev['serial'] = $serial;
 			$dev['data'] = array();
 
-			echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+			echo sprintf('Found: %s [%s] (dht11)' . "\n", $dev['name'], $dev['serial']);
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
@@ -104,7 +104,7 @@
 			}
 
 			if (!empty($dev['data'])) {
-				echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+				echo sprintf('Found: %s [%s] (MiTemp)' . "\n", $dev['name'], $dev['serial']);
 
 				if (isset($daemon['cli']['search'])) { continue; }
 
@@ -143,6 +143,7 @@
 			}];
 
 			$huedata = json_decode(@file_get_contents('http://' . $hue . '/api/' . $huedevice['apikey'] . '/sensors'), true);
+			$hueSensorDevs = [];
 
 			// Each physical device exposes multiple sensors that only contain partial information.
 			// Put them all together here.
@@ -202,21 +203,23 @@
 			$hueSensorDevsV2 = [];
 
 			// Find all devices.
-			foreach ($huedata_v2['data'] as $sensor) {
-				if ($sensor['type'] != 'device') { continue; }
+			if (isset($huedata_v2['data'])) {
+				foreach ($huedata_v2['data'] as $sensor) {
+					if ($sensor['type'] != 'device') { continue; }
 
-				$hueSensorDevsV2[$sensor['id']] = [];
-				$hueSensorDevsV2[$sensor['id']]['name'] = $sensor['metadata']['name'];
-				$hueSensorDevsV2[$sensor['id']]['children'] = [];
-			}
+					$hueSensorDevsV2[$sensor['id']] = [];
+					$hueSensorDevsV2[$sensor['id']]['name'] = $sensor['metadata']['name'];
+					$hueSensorDevsV2[$sensor['id']]['children'] = [];
+				}
 
-			// Find all resources that are related to a device.
-			foreach ($huedata_v2['data'] as $sensor) {
-				if (isset($sensor['owner']['rid']) && isset($hueSensorDevsV2[$sensor['owner']['rid']])) {
-					if (!isset($hueSensorDevsV2[$sensor['owner']['rid']]['children'][$sensor['type']])) {
-						$hueSensorDevsV2[$sensor['owner']['rid']]['children'][$sensor['type']] = [];
+				// Find all resources that are related to a device.
+				foreach ($huedata_v2['data'] as $sensor) {
+					if (isset($sensor['owner']['rid']) && isset($hueSensorDevsV2[$sensor['owner']['rid']])) {
+						if (!isset($hueSensorDevsV2[$sensor['owner']['rid']]['children'][$sensor['type']])) {
+							$hueSensorDevsV2[$sensor['owner']['rid']]['children'][$sensor['type']] = [];
+						}
+						$hueSensorDevsV2[$sensor['owner']['rid']]['children'][$sensor['type']][] = $sensor;
 					}
-					$hueSensorDevsV2[$sensor['owner']['rid']]['children'][$sensor['type']][] = $sensor;
 				}
 			}
 
@@ -247,15 +250,68 @@
 				 $possibleDevs[$serial] = $dev;
 			}
 
-
 			// Finally, decide which devices we care about.
 			foreach ($possibleDevs as $dev) {
 				if (!empty($dev['data'])) {
-					echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+					echo sprintf('Found: %s [%s] (hue)' . "\n", $dev['name'], $dev['serial']);
 
 					if (isset($daemon['cli']['search'])) { continue; }
 
 					$devices[] = $dev;
+				}
+			}
+		}
+
+		foreach ($tasmotaDevices as $addr => $tasmotaDevice) {
+			$tasmotaUrl  = 'http://' . $addr . '/cm?';
+			$baseQueryParams = [];
+			if (isset($tasmotaDevice['username'])) { $baseQueryParams['user'] = $tasmotaDevice['username']; }
+			if (isset($tasmotaDevice['password'])) { $baseQueryParams['password'] = $tasmotaDevice['password']; }
+			$baseQueryParams['cmnd'] = '';
+			$tasmotaUrl .= http_build_query($baseQueryParams);
+
+			if (isset($tasmotaDevice['zigbee']) && $tasmotaDevice['zigbee']) {
+				$zigbeeList = json_decode(@file_get_contents($tasmotaUrl . urlencode('ZbStatus1')), true);
+
+				// What values do we understand, and convert them to match others.
+				$zbDataValues = [];
+				$zbDataValues['battery'] = ['type' => 'BatteryPercentage', 'value' => function($v) { return $v['BatteryPercentage']; }];
+				$zbDataValues['temp'] = ['type' => 'Temperature', 'value' => function($v) { return intval($v['Temperature'] * 1000); }];
+				$zbDataValues['humidityrelative'] = ['type' => 'Humidity', 'value' => function($v) { return intval($v['Humidity'] * 1000); }];
+
+				$zbDevices = [];
+
+				foreach ($zigbeeList['ZbStatus1'] as $dev) {
+					$devid = $dev['Device'];
+					$sensor = json_decode(@file_get_contents($tasmotaUrl . urlencode('ZbStatus3 ' . $devid)), true)['ZbStatus3'][0];
+
+					// Ignore unreachable sensors, or sensors that we last recieved data from over an hour ago.
+					if (!$sensor['Reachable'] || $sensor['LastSeen'] > 3600) { continue; }
+
+					$dev = [];
+					$dev['name'] = $sensor['Name'] ?? '';
+					if (empty($dev['name'])) { $dev['name'] = $sensor['Device']; }
+					$dev['serial'] = preg_replace('/^0x/', '', strtolower($sensor['IEEEAddr']));
+					$dev['data'] = [];
+
+					foreach ($zbDataValues as $key => $keyInfo) {
+						if (isset($sensor[$keyInfo['type']])) {
+							$dev['data'][$key] = call_user_func($keyInfo['value'], $sensor);
+						}
+					}
+
+					$zbDevices[$devid] = $dev;
+				}
+
+				// Finally, decide which devices we care about.
+				foreach ($zbDevices as $dev) {
+					if (!empty($dev['data'])) {
+						echo sprintf('Found: %s [%s] (zigbee)' . "\n", $dev['name'], $dev['serial']);
+
+						if (isset($daemon['cli']['search'])) { continue; }
+
+						$devices[] = $dev;
+					}
 				}
 			}
 		}
@@ -291,7 +347,7 @@
 			}
 
 			if (!empty($dev['data'])) {
-				echo sprintf('Found: %s [%s]' . "\n", $dev['name'], $dev['serial']);
+				echo sprintf('Found: %s [%s] (awair)' . "\n", $dev['name'], $dev['serial']);
 				if (isset($daemon['cli']['search'])) { continue; }
 				$devices[] = $dev;
 			}

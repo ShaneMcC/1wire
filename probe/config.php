@@ -18,6 +18,11 @@
 	$awairDevices = [];
 	// $awairDevices['192.168.1.1'] = true;
 
+	/** Collect data from Tasmota devices. */
+	/** Currently only zigbee devices are supported.  */
+	$tasmotaDevices = [];
+	// $tasmotaDevices['192.168.1.1'] = ['username' => 'someuser', 'password' => 'somepassword', 'zigbee' => true];
+
 	// Collection Server can also be an array.
 	//
 	// $collectionServer = array();
