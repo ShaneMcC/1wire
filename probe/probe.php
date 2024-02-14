@@ -280,6 +280,11 @@
 				$zbDataValues['humidityrelative'] = ['type' => 'Humidity', 'value' => function($v) { return intval($v['Humidity'] * 1000); }];
 				$zbDataValues['pressure'] = ['type' => 'Pressure', 'value' => function($v) { return $v['PressureUnit'] == 'hPa' ? intval($v['Pressure'] * 1000) : null; }];
 
+				// https://docs.espressif.com/projects/esp-zigbee-sdk/en/latest/esp32/api-reference/zcl/esp_zigbee_zcl_ias_zone.html
+				// https://github.com/espressif/esp-zigbee-sdk/blob/b198d7b/components/esp-zigbee-lib/include/zcl/esp_zigbee_zcl_ias_zone.h
+				$zbDataValues['open'] = ['type' => 'ZoneStatus', 'value' => function($v) { return ((isset($v['ZoneType']) && $v['ZoneType'] == 0x15) ? (($v['ZoneStatus'] & (1 << 0)) !== 0) : null); }];
+				$zbDataValues['tampered'] = ['type' => 'ZoneStatus', 'value' => function($v) { return ($v['ZoneStatus'] & (1 << 2)) !== 0; }];
+
 				$zbDevices = [];
 
 				foreach ($zigbeeList['ZbStatus1'] as $dev) {
@@ -298,7 +303,7 @@
 					foreach ($zbDataValues as $key => $keyInfo) {
 						if (isset($sensor[$keyInfo['type']])) {
 							$dev['data'][$key] = call_user_func($keyInfo['value'], $sensor);
-							if ($dev['data'][$key] == null) { unset($dev['data'][$key]); }
+							if ($dev['data'][$key] === null) { unset($dev['data'][$key]); }
 						}
 					}
 
