@@ -39,9 +39,10 @@
 			$dev = array();
 			$dev['name'] = $name;
 			$dev['serial'] = $serial;
+			$dev['datasource'] = ['type' => '1wire'];
 			$dev['data'] = array();
 
-			echo sprintf('Found: %s [%s] (1wire)' . "\n", $dev['name'], $dev['serial']);
+			echo sprintf('Found: %s [%s] (%s)' . "\n", $dev['name'], $dev['serial'], $dev['datasource']['type']);
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
@@ -68,9 +69,10 @@
 			$dev = array();
 			$dev['name'] = $name;
 			$dev['serial'] = $serial;
+			$dev['datasource'] = ['type' => 'dht11'];
 			$dev['data'] = array();
 
-			echo sprintf('Found: %s [%s] (dht11)' . "\n", $dev['name'], $dev['serial']);
+			echo sprintf('Found: %s [%s] (%s)' . "\n", $dev['name'], $dev['serial'], $dev['datasource']['type']);
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
@@ -95,6 +97,7 @@
 			$dev = [];
 			$dev['name'] = $data['name'];
 			$dev['serial'] = $data['name'];
+			$dev['datasource'] = ['type' => 'mitemp'];
 			$dev['data'] = [];
 			// Convert the data values to the same format as DHT11.
 			foreach (['temperature' => 'temp', 'humidity' => 'humidityrelative', 'voltage' => 'voltage'] as $dType => $dName) {
@@ -104,7 +107,7 @@
 			}
 
 			if (!empty($dev['data'])) {
-				echo sprintf('Found: %s [%s] (MiTemp)' . "\n", $dev['name'], $dev['serial']);
+				echo sprintf('Found: %s [%s] (%s)' . "\n", $dev['name'], $dev['serial'], $dev['datasource']['type']);
 
 				if (isset($daemon['cli']['search'])) { continue; }
 
@@ -182,6 +185,7 @@
 				$dev = [];
 				$dev['name'] = $sensor['name'];
 				$dev['serial'] = $sensor['serial'];
+				$dev['datasource'] = ['type' => 'hue', 'bridge' => $hue, 'version' => 1];
 				$dev['data'] = [];
 
 				foreach ($sensor['values'] as $dName => $dValue) {
@@ -235,6 +239,7 @@
 					$dev['name'] = $sensor['name'];
 					$dev['serial'] = $serial;
 					$dev['serial'] = str_replace(':', '', $dev['serial']);
+					$dev['datasource'] = ['type' => 'hue', 'bridge' => $hue, 'version' => 2];
 					$dev['data'] = [];
 				}
 
@@ -253,7 +258,7 @@
 			// Finally, decide which devices we care about.
 			foreach ($possibleDevs as $dev) {
 				if (!empty($dev['data'])) {
-					echo sprintf('Found: %s [%s] (hue)' . "\n", $dev['name'], $dev['serial']);
+					echo sprintf('Found: %s [%s] (%s:%s - %s)' . "\n", $dev['name'], $dev['serial'], $dev['datasource']['type'], $dev['datasource']['version'], $dev['datasource']['bridge']);
 
 					if (isset($daemon['cli']['search'])) { continue; }
 
@@ -270,6 +275,44 @@
 			$baseQueryParams['cmnd'] = '';
 			$tasmotaUrl .= http_build_query($baseQueryParams);
 
+			$status0 = json_decode(@file_get_contents($tasmotaUrl . urlencode('Status 0')), true);
+			$tasmotaDev = [];
+
+			$tasmotaEnergyDataValues['voltage'] = ['type' => 'Voltage', 'value' => function($v) { return $v['Voltage']; }]; // Volts
+			$tasmotaEnergyDataValues['current'] = ['type' => 'Current', 'value' => function($v) { return intval($v['Current'] * 1000); }]; // Amps => Milliamps
+			$tasmotaEnergyDataValues['powerfactor'] = ['type' => 'Factor', 'value' => function($v) { return $v['Factor']; }]; // Power Factor
+
+			$tasmotaEnergyDataValues['realpower'] = ['type' => 'Power', 'value' => function($v) { return intval($v['Power'] * 1000); }]; // W to mW
+			$tasmotaEnergyDataValues['apparentpower'] = ['type' => 'ApparentPower', 'value' => function($v) { return intval($v['ApparentPower'] * 1000); }]; // VA => mVA
+			$tasmotaEnergyDataValues['reactivepower'] = ['type' => 'ReactivePower', 'value' => function($v) { return intval($v['ReactivePower'] * 1000); }]; // VAr => mVAr
+
+			$tasmotaEnergyDataValues['todaywh'] = ['type' => 'Today', 'value' => function($v) { return intval($v['Today'] * 1000); }]; // kWH to WH
+
+			if (isset($status0['Status'])) {
+				$dev = [];
+				$dev['name'] = $status0['Status']['DeviceName'];
+				$dev['serial'] = str_replace(':', '', strtolower($status0['StatusNET']['Mac']));
+				$dev['datasource'] = ['type' => 'tasmota', 'addr' => $addr];
+				$dev['data'] = [];
+
+				if (isset($status0['StatusSNS']['ENERGY'])) {
+					$sensor = $status0['StatusSNS']['ENERGY'];
+					foreach ($tasmotaEnergyDataValues as $key => $keyInfo) {
+						if (isset($sensor[$keyInfo['type']])) {
+							$dev['data'][$key] = call_user_func($keyInfo['value'], $sensor);
+							if ($dev['data'][$key] === null) { unset($dev['data'][$key]); }
+						}
+					}
+				}
+
+				$tasmotaDev = $dev;
+				// We don't process this $dev here into the devices list, we process it later.
+				// because zigbee-only has no valid data to log, so we don't want to skip it.
+			} else {
+				// Invalid tasmota device, ignore.
+				continue;
+			}
+
 			if (isset($tasmotaDevice['zigbee']) && $tasmotaDevice['zigbee']) {
 				$zigbeeList = json_decode(@file_get_contents($tasmotaUrl . urlencode('ZbStatus1')), true);
 
@@ -278,7 +321,7 @@
 				$zbDataValues['battery'] = ['type' => 'BatteryPercentage', 'value' => function($v) { return intval($v['BatteryPercentage']); }];
 				$zbDataValues['temp'] = ['type' => 'Temperature', 'value' => function($v) { return intval($v['Temperature'] * 1000); }];
 				$zbDataValues['humidityrelative'] = ['type' => 'Humidity', 'value' => function($v) { return intval($v['Humidity'] * 1000); }];
-				$zbDataValues['pressure'] = ['type' => 'Pressure', 'value' => function($v) { return $v['PressureUnit'] == 'hPa' ? intval($v['Pressure'] * 1000) : null; }];
+				$zbDataValues['pressure'] = ['type' => 'Pressure', 'value' => function($v) { return (!isset($v['PressureUnit']) || $v['PressureUnit'] == 'hPa') ? intval($v['Pressure'] * 1000) : null; }];
 
 				// https://docs.espressif.com/projects/esp-zigbee-sdk/en/latest/esp32/api-reference/zcl/esp_zigbee_zcl_ias_zone.html
 				// https://github.com/espressif/esp-zigbee-sdk/blob/b198d7b/components/esp-zigbee-lib/include/zcl/esp_zigbee_zcl_ias_zone.h
@@ -298,6 +341,7 @@
 					$dev['name'] = $sensor['Name'] ?? '';
 					if (empty($dev['name'])) { $dev['name'] = $sensor['Device']; }
 					$dev['serial'] = preg_replace('/^0x/', '', strtolower($sensor['IEEEAddr']));
+					$dev['datasource'] = ['type' => 'tasmota-zigbee', 'bridge' => $addr];
 					$dev['data'] = [];
 
 					foreach ($zbDataValues as $key => $keyInfo) {
@@ -313,12 +357,21 @@
 				// Finally, decide which devices we care about.
 				foreach ($zbDevices as $dev) {
 					if (!empty($dev['data'])) {
-						echo sprintf('Found: %s [%s] (zigbee)' . "\n", $dev['name'], $dev['serial']);
+						echo sprintf('Found: %s [%s] (%s - %s)' . "\n", $dev['name'], $dev['serial'], $dev['datasource']['type'], $dev['datasource']['bridge']);
 
 						if (isset($daemon['cli']['search'])) { continue; }
 
 						$devices[] = $dev;
 					}
+				}
+			}
+
+			if (isset($status0['Status'])) {
+				$dev = $tasmotaDev;
+				if (!empty($dev['data'])) {
+					echo sprintf('Found: %s [%s] (%s - %s)' . "\n", $dev['name'], $dev['serial'], $dev['datasource']['type'], $dev['datasource']['addr']);
+					if (isset($daemon['cli']['search'])) { continue; }
+					$devices[] = $dev;
 				}
 			}
 		}
