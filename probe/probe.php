@@ -46,12 +46,35 @@
 
 			if (isset($daemon['cli']['search'])) { continue; }
 
+			$foundInputs = false;
 			foreach (glob($basedir . '/hwmon/hwmon*/*_input') as $sensor) {
+				$foundInputs = true;
 				$sensorName = preg_replace('#^(.*)_input$#', '\1', basename($sensor));
 				$sensorValue = trim(file_get_contents($sensor));
 
 				echo sprintf("\t" . 'Sensor: %s [%s]' . "\n", $sensorName, $sensorValue);
 				$dev['data'][$sensorName] = $sensorValue;
+			}
+
+			// Sometimes we don't get nice endpoints, just the w1_slave endpoint, so grab data from that.
+			if (!$foundInputs && file_exists($basedir . '/w1_slave')) {
+				$data = trim(file_get_contents($basedir . '/w1_slave'));
+				foreach (explode("\n", $data) as $dataline) {
+					if (!preg_match('/^.*\s([^\s]+)=(.*)$/', trim($dataline), $databits)) { continue; }
+
+					if ($databits[1] == 'crc') {
+						// Invalid data, ignore.
+						if (strpos($databits[2], 'YES') === FALSE) {
+							break;
+						}
+					} else if ($databits[1] == 't') {
+						$sensorName = 'temp1';
+						$sensorValue = $databits[2];
+
+						echo sprintf("\t" . 'Legacy Sensor: %s [%s]' . "\n", $sensorName, $sensorValue);
+						$dev['data'][$sensorName] = $sensorValue;
+					}
+				}
 			}
 
 			$devices[] = $dev;
