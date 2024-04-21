@@ -1,3 +1,10 @@
+# Deprecated
+
+This stand-alone repo has been deprecated.
+
+See https://github.com/ShaneMcC/collector-probe and https://github.com/ShaneMcC/collector-web instead.
+
+
 # 1WIRE Poller
 
 This repo contains tools for collecting data from a Raspberry PI with 1-wire (DS18B20) or DHT11 temperature sensors. It is based on https://github.com/ShaneMcC/wemo
