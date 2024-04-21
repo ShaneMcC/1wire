@@ -49,3 +49,15 @@
 		 */
 		function afterProbeAction($devices) { }
 	}
+
+	if (!function_exists('collectCustomSensorData')) {
+		/**
+		 * Function to run after finding all supported devices to collect additional sensors
+		 * or modify existing sensor data.
+		 *
+		 * Devices is passed in by reference, so it can be modified directly.
+		 *
+		 * @param $devices Devices array
+		 */
+		function collectCustomSensorData(&$devices) { }
+	}

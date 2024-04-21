@@ -416,6 +416,10 @@
 			}
 		}
 
+		if (function_exists('collectCustomSensorData')) {
+			collectCustomSensorData($devices);
+		}
+
 		if (count($devices) > 0 && !isset($daemon['cli']['debug'])) {
 			$data = json_encode(array('time' => $time, 'devices' => $devices));
 
@@ -524,4 +528,6 @@
 		}
 	}
 
-	if (count($devices) > 0) { afterProbeAction($devices); }
+	if (count($devices) > 0 && function_exists('afterProbeAction')) {
+		afterProbeAction($devices);
+	}
