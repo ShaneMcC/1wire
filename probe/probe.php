@@ -338,7 +338,10 @@
 					if (!$sensor['Reachable'] || $sensor['LastSeen'] > 3600) { continue; }
 
 					$dev = [];
-					$dev['name'] = $sensor['Name'] ?? '';
+					$dev['name'] = '';
+					if (!isset($tasmotaDevice['usedevname']) || $tasmotaDevice['usedevname']) {
+						$dev['name'] = $sensor['Name'] ?? '';
+					}
 					if (empty($dev['name'])) { $dev['name'] = $sensor['Device']; }
 					$dev['serial'] = preg_replace('/^0x/', '', strtolower($sensor['IEEEAddr']));
 					$dev['datasource'] = ['type' => 'tasmota-zigbee', 'bridge' => $addr];
