@@ -339,6 +339,8 @@
 			if (isset($tasmotaDevice['zigbee']) && $tasmotaDevice['zigbee']) {
 				$zigbeeList = json_decode(@file_get_contents($tasmotaUrl . urlencode('ZbStatus1')), true);
 
+				if (!isset($zigbeeList['ZbStatus1'])) { continue; }
+
 				// What values do we understand, and convert them to match others.
 				$zbDataValues = [];
 				$zbDataValues['battery'] = ['type' => 'BatteryPercentage', 'value' => function($v) { return intval($v['BatteryPercentage']); }];
@@ -355,7 +357,10 @@
 
 				foreach ($zigbeeList['ZbStatus1'] as $dev) {
 					$devid = $dev['Device'];
-					$sensor = json_decode(@file_get_contents($tasmotaUrl . urlencode('ZbStatus3 ' . $devid)), true)['ZbStatus3'][0];
+					$sensor = json_decode(@file_get_contents($tasmotaUrl . urlencode('ZbStatus3 ' . $devid)), true);
+
+					if (!isset($sensor['ZbStatus3'][0])) { continue; }
+					$sensor = $sensor['ZbStatus3'][0];
 
 					// Ignore unreachable sensors, or sensors that we last recieved data from over an hour ago.
 					if (!$sensor['Reachable'] || $sensor['LastSeen'] > 3600) { continue; }
